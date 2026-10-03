@@ -1,13 +1,21 @@
 # 🎮 GameAlert
 
+[![Live](https://img.shields.io/badge/producci%C3%B3n-online-d4ff3f)](https://gamealert-ashen.vercel.app)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
+[![Prisma + Turso](https://img.shields.io/badge/Prisma-Turso-2e5b4f)](https://www.prisma.io/)
+[![Tests](https://img.shields.io/badge/tests-318%20verdes-d4ff3f)](#)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/angelneria/gamealert)
+
 **Never miss an important free game again. No junk, only quality.**
 
-An automated system that monitors Steam, Epic Games, GOG, and other platforms for free game releases, filters out low-quality titles using AI-powered scoring, and sends instant notifications via email/Discord.
+🌐 **En producción:** https://gamealert-ashen.vercel.app
+
+An automated system that monitors Steam, Epic Games and GOG for free game releases (100% temporary discounts, never F2P) and deep deals, filters out low-quality titles using Metacritic scores, and sends notifications via Discord and email.
 
 ## Features
 
-- 🔍 **Multi-Platform Monitoring** - Steam, Epic Games, GOG, Humble Bundle, and more
-- 🧹 **Smart Filtering** - Rejects low-quality free games using Metacritic scores, review counts, and publisher reputation
+- 🔍 **Multi-Platform Monitoring** - Steam, Epic Games, GOG
+- 🧹 **Smart Filtering** - Rejects low-quality free games using Metacritic scores and publisher reputation
 - ⚡ **Instant Notifications** - Email and Discord notifications the moment a quality free game drops
 - 📊 **Importance Scoring** - Composite 0-100 score based on popularity, critics, publisher, and trend analysis
 - ⚙️ **Customizable** - Set your own thresholds for what counts as "important"
