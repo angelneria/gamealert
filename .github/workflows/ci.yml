@@ -19,8 +19,17 @@ jobs:
       
       - run: npm ci
       - run: npm run db:generate
+      # Sin esto Prisma no tiene URL y el registro devuelve 500:
+      # SQLite local efímero solo para los tests (no se sube a ningún lado)
+      - run: npm run db:push
+        env:
+          DATABASE_URL: "file:./dev.db"
       - run: npm run test
+        env:
+          DATABASE_URL: "file:./dev.db"
       - run: npm run test:coverage
+        env:
+          DATABASE_URL: "file:./dev.db"
 
   lint:
     runs-on: ubuntu-latest
@@ -45,6 +54,8 @@ jobs:
       - run: npm ci
       - run: npm run db:generate
       - run: npm run build
+        env:
+          DATABASE_URL: "file:./dev.db"
 
   deploy:
     needs: [build]
