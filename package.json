@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "db:turso": "tsx scripts/db-push-turso.ts",
     "queue": "tsx src/server/queue-worker.ts",
     "scrape": "tsx src/server/scraper-runner.ts",
     "notify": "tsx src/server/notify-runner.ts",

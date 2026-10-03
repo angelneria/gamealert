@@ -42,3 +42,47 @@ export function assertDatabaseConfig(cfg: DatabaseConfig): void {
     );
   }
 }
+
+/**
+ * Splits Prisma-generated DDL into single statements. A naive
+ * `split(";")` breaks inside string literals (e.g. DEFAULT 'a;b'),
+ * so quotes are tracked. Good enough for migrate-diff output
+ * (CREATE TABLE / CREATE INDEX, no triggers/procedures).
+ */
+export function splitSqlStatements(sql: string): string[] {
+  const out: string[] = [];
+  let current = "";
+  let quote: string | null = null;
+
+  const flush = () => {
+    const cleaned = current
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("--"))
+      .join("\n")
+      .trim();
+    if (cleaned) out.push(cleaned);
+    current = "";
+  };
+
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    if (quote) {
+      current += ch;
+      if (ch === quote && sql[i - 1] !== "\\") quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+    if (ch === ";") {
+      current += ch;
+      flush();
+      continue;
+    }
+    current += ch;
+  }
+  flush();
+  return out;
+}

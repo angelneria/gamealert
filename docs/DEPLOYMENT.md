@@ -35,12 +35,11 @@ NODE_ENV=production
 
 # Database — PRODUCCIÓN: Turso (SQLite remoto, plan gratis).
 # El SQLite local NO persiste en Vercel (disco efímero): sin esto se
-# pierden usuarios e historial en cada despliegue. Pasos (una vez):
-#   1. Instala el CLI: brew install tursodatabase/tap/turso (o curl -sSf https://get.tur.so/install.sh | bash)
-#   2. turso auth login && turso db create gamealert
-#   3. turso db show gamealert --url        → DATABASE_URL (libsql://...)
-#      turso db tokens create gamealert     → TURSO_AUTH_TOKEN
-#   4. Crea las tablas en remoto: DATABASE_URL="libsql://..." TURSO_AUTH_TOKEN="..." npx prisma db push
+# pierden usuarios e historial en cada despliegue.
+# Ya creado: gamealert-angelneria (eu-west-1), tablas `users`,
+# `subscriptions`, `notifications` generadas con `npm run db:turso`
+# (Prisma 5 no acepta libsql:// en `db push`: el script genera el DDL
+# con `migrate diff` y lo aplica con @libsql/client).
 # En Vercel: añade DATABASE_URL + TURSO_AUTH_TOKEN en Environment Variables.
 # En local no toques nada: con file:./dev.db sigue usando SQLite local.
 DATABASE_URL="libsql://gamealert-xxx.turso.io"

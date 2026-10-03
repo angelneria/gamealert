@@ -239,7 +239,7 @@ describe("funcionNueva", () => {
 
 ## 6. Registro de casos de prueba
 
-### Unitarios (263 tests)
+### Unitarios (266 tests)
 | Suite | Tests | Cobertura |
 |-------|-------|-----------|
 | `filters.test.ts` | 91 | Steam/Epic/GOG/shared + chollos (CheapShark: tiendas, parseo, precio, descuento) |
@@ -259,7 +259,7 @@ describe("funcionNueva", () => {
 |-------|-------|-----------|
 | `api.test.ts` | 52 | registro+sesión, login/logout, preferencias (incl. chollos), /api/games, /api/deals, notificaciones, cron, CSRF, páginas protegidas, SEO |
 
-**Total: 315 tests**
+**Total: 318 tests**
 
 ### Smoke/UI (test.sh)
 | Check | Qué verifica |
