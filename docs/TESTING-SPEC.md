@@ -106,12 +106,15 @@ describe("nombreFuncion", () => {
 | Dedupe gratis vs chollo | mismo título gratis+rebajado → UNA notificación, y gana la versión **gratis** |
 | Chollos en el pipeline | por debajo del presupuesto ✗, por debajo del descuento mínimo ✗, enviado → entra en cooldown igual que los gratis |
 | Tope de chollos por ejecución | 15 chollos que cascan → solo 10 envíos en el primer run; los 5 aplazados salen en el siguiente (15 en total, ningún título repetido); los gratis (12) salen todos de golpe sin tope |
+| Resumen por canal | 15 chollos → UNA llamada de Discord (no 10/15) con los 10 mejores; el historial sigue registrándose por juego (cooldown intacto); el email sale en un solo envío |
 | Mensaje con precio | el `DiscordGame`/`EmailGame` del chollo lleva `isFree=false`, `salePrice`, `discountPct`, `originalPrice` |
 
 ### `src/server/discord.ts` + `notemail.ts` — Mensajes
 | Función | Tests obligatorios |
 |---------|-------------------|
 | `buildDiscordEmbed` | gratis → Precio "GRATIS" y SIN campo Descuento; chollo → "$4.99 (antes $19.99)" + "-75%"; sin original → solo precio; sin publisher → sin Editor |
+| `sendDiscordDigest` | hasta 10 embeds por mensaje (11 juegos → 2 mensajes de 10+1); vacío → true sin peticiones; un tramo falla → false (reintento entero); URL no oficial → false |
+| `buildDigestSubject/Html/Text` | asunto con cuentas (1 gratis + N chollos); HTML con secciones Gratis/Chollos y todos los títulos; solo-chollos sin GRATIS; texto con precios y enlaces |
 | `sendDiscordNotification` | espera 1 s tras cada intento (límite de rate, programado con timers); URL no oficial → sin petición y sin pausa |
 | `buildEmailSubject` | gratis → "Juego Gratis: …"; chollo → "Chollo: … a $X en tienda (-N%)" |
 | `buildEmailHtml` / `buildEmailText` | gratis → GRATIS + CTA "Jugar gratis"; chollo → precios + descuento + CTA "Ver oferta", nunca la palabra GRATIS |
@@ -239,15 +242,15 @@ describe("funcionNueva", () => {
 
 ## 6. Registro de casos de prueba
 
-### Unitarios (266 tests)
+### Unitarios (277 tests)
 | Suite | Tests | Cobertura |
 |-------|-------|-----------|
 | `filters.test.ts` | 91 | Steam/Epic/GOG/shared + chollos (CheapShark: tiendas, parseo, precio, descuento) |
 | `security.test.ts` | 36 | SSRF webhook, esquemas Zod (incl. password + chollos), isLoopbackIp |
 | `notification-filter.test.ts` | 33 | targeting usuarios + puertas de chollo (precio/descuento, fail-closed) + tope de chollos por ejecución |
-| `notify-messages.test.ts` | 17 | mensajes Discord/email: gratis vs chollo (asunto, precios, CTAs) |
-| `discord-send.test.ts` | 2 | pausa de 1 s tras cada envío (rate limit) y URL no oficial sin petición |
-| `notify-runner.test.ts` | 15 | garantía "solo juegos nuevos" + flujo de chollos (scrape condicional, presupuesto, dedupe gratis>chollo, cooldown) + tope por ejecución |
+| `notify-messages.test.ts` | 23 | mensajes Discord/email: gratis vs chollo (asunto, precios, CTAs) + resumen (asunto con cuentas, HTML/texto con secciones, sin GRATIS en solo-chollos) |
+| `discord-send.test.ts` | 7 | pausa de 1 s tras cada envío (rate limit) y URL no oficial sin petición + digest (corte en 10 embeds, vacío, fallo parcial, URL mala) |
+| `notify-runner.test.ts` | 18 | garantía "solo juegos nuevos" + flujo de chollos (scrape condicional, presupuesto, dedupe gratis>chollo, cooldown) + tope por ejecución + UN resumen por canal y pasada (historial sigue por juego) |
 | `auth.test.ts` | 21 | scrypt, sesiones HMAC, loginSchema |
 | `game-list.test.ts` | 20 | búsqueda (acentos, vacía), orden (5 claves, sin-dato al final, no muta), iniciales desde Ajustes |
 | `db-config.test.ts` | 6 | selector local vs Turso, fail-closed sin token |
@@ -259,7 +262,7 @@ describe("funcionNueva", () => {
 |-------|-------|-----------|
 | `api.test.ts` | 52 | registro+sesión, login/logout, preferencias (incl. chollos), /api/games, /api/deals, notificaciones, cron, CSRF, páginas protegidas, SEO |
 
-**Total: 318 tests**
+**Total: 329 tests**
 
 ### Smoke/UI (test.sh)
 | Check | Qué verifica |

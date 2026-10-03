@@ -198,3 +198,151 @@ export function buildEmailText(game: EmailGame, score: number): string {
   text += `\nGestionar preferencias: ${config.app.url}/dashboard/settings`;
   return text;
 }
+
+/** Un item del resumen con su puntuación (para el color/etiqueta) */
+export interface DigestItem {
+  game: EmailGame;
+  score: number;
+}
+
+/**
+ * Asunto del resumen: cuenta gratis y chollos por separado para que
+ * el usuario sepa qué hay dentro sin abrirlo.
+ */
+export function buildDigestSubject(items: DigestItem[]): string {
+  const free = items.filter((i) => !isDeal(i.game)).length;
+  const deals = items.length - free;
+  if (free > 0 && deals > 0) {
+    return `GameAlert: ${items.length} novedades (${free} gratis + ${deals} ${deals === 1 ? "chollo" : "chollos"})`;
+  }
+  if (deals > 0) {
+    return `GameAlert: ${deals} ${deals === 1 ? "chollo" : "chollos"}`;
+  }
+  return `GameAlert: ${free} ${free === 1 ? "juego gratis" : "juegos gratis"}`;
+}
+
+function digestPriceLine(game: EmailGame): string {
+  if (isDeal(game)) {
+    return `$${game.salePrice!.toFixed(2)}${game.originalPrice ? ` (antes $${game.originalPrice.toFixed(2)})` : ""}${game.discountPct !== undefined ? ` -${game.discountPct}%` : ""}`;
+  }
+  return "GRATIS";
+}
+
+/** Fila compacta de un juego dentro del resumen (HTML). */
+function buildDigestRow(item: DigestItem): string {
+  const { game, score } = item;
+  const deal = isDeal(game);
+  const badge = deal
+    ? `<span style="color:#ff5c38;font-weight:700;font-size:13px;">CHOLLO ${digestPriceLine(game)}</span>`
+    : `<span style="color:#d4ff3f;font-weight:700;font-size:13px;">GRATIS</span>`;
+  return `<tr><td style="padding:16px 0;border-bottom:1px solid #26261f;">
+    <a href="${game.storeUrl}" target="_blank" style="margin:0 0 4px;font-size:18px;font-weight:700;color:#ece9e2;text-decoration:none;">${game.title}</a>
+    <p style="margin:6px 0;font-size:13px;color:#8a8578;text-transform:uppercase;letter-spacing:1px;">${game.platform}${game.metacriticScore ? ` · Metacritic ${game.metacriticScore}/100` : ""} · ${Math.round(score)}/100</p>
+    <p style="margin:6px 0 0;font-size:13px;">${badge}</p>
+  </td></tr>`;
+}
+
+/** Resumen HTML: una sección de gratis y otra de chollos. */
+export function buildDigestHtml(items: DigestItem[]): string {
+  const free = items.filter((i) => !isDeal(i.game));
+  const deals = items.filter((i) => isDeal(i.game));
+
+  const section = (title: string, list: DigestItem[]) =>
+    list.length === 0
+      ? ""
+      : `<tr><td style="padding:24px 40px 0;">
+           <p style="margin:0;font-size:12px;font-weight:700;letter-spacing:2px;color:#8a8578;text-transform:uppercase;">${title}</p>
+         </td></tr>
+         <tr><td style="padding:0 40px;">
+           <table width="100%" cellpadding="0" cellspacing="0">
+             ${list.map(buildDigestRow).join("")}
+           </table>
+         </td></tr>`;
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0a09;color:#ece9e2;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a09;padding:40px 20px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#131311;border:1px solid #26261f;">
+        <tr>
+          <td style="padding:32px 40px;border-bottom:1px solid #26261f;">
+            <p style="margin:0;font-size:14px;font-weight:700;letter-spacing:2px;color:#d4ff3f;text-transform:uppercase;">GameAlert</p>
+            <p style="margin:8px 0 0;font-size:12px;color:#8a8578;">Resumen: ${items.length} ${items.length === 1 ? "novedad" : "novedades"}</p>
+          </td>
+        </tr>
+        ${section("Gratis", free)}
+        ${section("Chollos", deals)}
+        <tr>
+          <td style="background:#0a0a09;padding:20px 40px;text-align:center;border-top:1px solid #26261f;">
+            <p style="margin:0;font-size:11px;color:#555;">
+              Recibes esto porque te registraste en GameAlert.<br>
+              <a href="${config.app.url}/dashboard/settings" style="color:#8a8578;">Gestionar preferencias</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Resumen en texto plano: secciones Gratis y Chollos con enlaces. */
+export function buildDigestText(items: DigestItem[]): string {
+  const free = items.filter((i) => !isDeal(i.game));
+  const deals = items.filter((i) => isDeal(i.game));
+
+  const lines = (list: DigestItem[]) =>
+    list.map(
+      (i) =>
+        `- ${i.game.title} (${i.game.platform}) — ${digestPriceLine(i.game)}\n  ${i.game.storeUrl}`
+    );
+
+  let text = `GAMEALERT — Resumen: ${items.length} ${items.length === 1 ? "novedad" : "novedades"}\n`;
+  if (free.length > 0) text += `\nGRATIS:\n${lines(free).join("\n")}\n`;
+  if (deals.length > 0) text += `\nCHOLLOS:\n${lines(deals).join("\n")}\n`;
+  text += `\nGestionar preferencias: ${config.app.url}/dashboard/settings`;
+  return text;
+}
+
+/**
+ * Un solo email con todos los juegos de la pasada.
+ * Devuelve true si sale (o dry-run aceptado), false si falla.
+ */
+export async function sendDigestEmail(
+  email: string,
+  items: DigestItem[]
+): Promise<boolean> {
+  if (items.length === 0) return true;
+  if (!isEmailConfigured()) {
+    console.log(
+      `📧 [dry-run] Digest to ${email}: ${items.length} games (SMTP not configured)`
+    );
+    return false;
+  }
+
+  try {
+    const t = getTransporter();
+    const info = await t.sendMail({
+      from: config.resend.from,
+      to: email,
+      subject: buildDigestSubject(items),
+      html: buildDigestHtml(items),
+      text: buildDigestText(items),
+      headers: {
+        "X-Priority": "1",
+        "X-Mailer": "GameAlert/1.0",
+      },
+    });
+
+    console.log(
+      `📧 Digest sent to ${email}: ${items.length} games (ID: ${info.messageId})`
+    );
+    return true;
+  } catch (error) {
+    console.error("Digest email failed:", error);
+    return false;
+  }
+}

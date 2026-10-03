@@ -11,8 +11,8 @@
 import { runNotifications } from "@/server/notify-runner";
 import type { ScrapedGame } from "@/lib/api-client";
 import { scrapeAllPlatforms, scrapeDeals } from "@/lib/api-client";
-import { sendDiscordNotification } from "@/server/discord";
-import { sendEmailNotification, isEmailConfigured } from "@/server/notemail";
+import { sendDiscordDigest } from "@/server/discord";
+import { sendDigestEmail, isEmailConfigured } from "@/server/notemail";
 
 // ---------- in-memory database ----------
 const mockState = {
@@ -54,17 +54,19 @@ jest.mock("@/lib/api-client", () => ({
 }));
 jest.mock("@/server/discord", () => ({
   sendDiscordNotification: jest.fn(),
+  sendDiscordDigest: jest.fn(),
   isValidDiscordWebhook: jest.fn(() => true),
 }));
 jest.mock("@/server/notemail", () => ({
   sendEmailNotification: jest.fn(),
+  sendDigestEmail: jest.fn(),
   isEmailConfigured: jest.fn(() => false),
 }));
 
 const mockScrape = scrapeAllPlatforms as unknown as jest.Mock;
 const mockDeals = scrapeDeals as unknown as jest.Mock;
-const mockDiscord = sendDiscordNotification as unknown as jest.Mock;
-const mockEmail = sendEmailNotification as unknown as jest.Mock;
+const mockDiscord = sendDiscordDigest as unknown as jest.Mock;
+const mockDigestEmail = sendDigestEmail as unknown as jest.Mock;
 const mockEmailConfigured = isEmailConfigured as unknown as jest.Mock;
 
 // ---------- fixtures ----------
@@ -105,7 +107,7 @@ beforeEach(() => {
   mockScrape.mockResolvedValue([gameA]);
   mockDeals.mockResolvedValue([]);
   mockDiscord.mockResolvedValue(true);
-  mockEmail.mockResolvedValue(true);
+  mockDigestEmail.mockResolvedValue(true);
   mockEmailConfigured.mockReturnValue(false);
 });
 
@@ -137,10 +139,11 @@ describe("runNotifications — solo juegos nuevos", () => {
 
     expect(result.notified).toBe(1); // only the new one
     expect(mockDiscord).toHaveBeenCalledTimes(2);
-    expect(mockDiscord).toHaveBeenLastCalledWith(
-      expect.objectContaining({ title: "Juego B" }),
-      user.discordWebhookUrl
+    const lastDigest = mockDiscord.mock.calls[1][0];
+    expect(lastDigest).toEqual(
+      expect.arrayContaining([expect.objectContaining({ title: "Juego B" })])
     );
+    expect(mockDiscord.mock.calls[1][1]).toBe(user.discordWebhookUrl);
     // A was not re-sent
     const titles = mockState.notifications.map((n: any) => n.gameTitle);
     expect(titles.filter((t: string) => t === "Juego A")).toHaveLength(1);
@@ -171,8 +174,8 @@ describe("runNotifications — solo juegos nuevos", () => {
     await runNotifications();
     await runNotifications();
 
-    // Nothing was actually sent, so sendEmail was never invoked...
-    expect(mockEmail).not.toHaveBeenCalled();
+    // Nothing was actually sent, so the digest sender was never invoked...
+    expect(mockDigestEmail).not.toHaveBeenCalled();
     // ...and no row is ever marked "sent" (user can't receive duplicates)
     expect(mockState.notifications.every((n: any) => n.status !== "sent")).toBe(
       true
@@ -252,7 +255,8 @@ describe("runNotifications — chollos (juegos rebajados)", () => {
     expect(mockDeals).toHaveBeenCalledTimes(1);
     expect(mockDeals).toHaveBeenCalledWith(10); // tope del usuario
     expect(mockDiscord).toHaveBeenCalledTimes(1);
-    expect(mockDiscord).toHaveBeenCalledWith(
+    const digest = mockDiscord.mock.calls[0][0];
+    expect(digest).toEqual([
       expect.objectContaining({
         title: "Chollo Bomba",
         isFree: false,
@@ -260,8 +264,8 @@ describe("runNotifications — chollos (juegos rebajados)", () => {
         discountPct: 80,
         originalPrice: 39.99,
       }),
-      user.discordWebhookUrl
-    );
+    ]);
+    expect(mockDiscord.mock.calls[0][1]).toBe(user.discordWebhookUrl);
   });
 
   it("NO scrapea chollos si ningún usuario los tiene activados", async () => {
@@ -273,10 +277,9 @@ describe("runNotifications — chollos (juegos rebajados)", () => {
     expect(mockDeals).not.toHaveBeenCalled();
     expect(result.notified).toBe(1); // solo el juego gratis
     expect(mockDiscord).toHaveBeenCalledTimes(1);
-    expect(mockDiscord).toHaveBeenCalledWith(
+    expect(mockDiscord.mock.calls[0][0]).toEqual([
       expect.objectContaining({ title: "Juego A" }),
-      expect.anything()
-    );
+    ]);
   });
 
   it("NO envía un chollo por encima del presupuesto del usuario", async () => {
@@ -313,10 +316,9 @@ describe("runNotifications — chollos (juegos rebajados)", () => {
     expect(result.notified).toBe(1);
     expect(mockState.notifications).toHaveLength(1);
     expect(mockState.notifications[0].gameTitle).toBe(gameA.title);
-    expect(mockDiscord).toHaveBeenCalledWith(
+    expect(mockDiscord.mock.calls[0][0]).toEqual([
       expect.objectContaining({ isFree: true }),
-      expect.anything()
-    );
+    ]);
   });
 
   it("el chollo enviado entra en cooldown: el segundo run no lo reenvía", async () => {
@@ -359,14 +361,16 @@ describe("runNotifications — tope de chollos por ejecución", () => {
     mockDeals.mockResolvedValue(manyDeals);
   });
 
-  it("la primera ejecución envía como máximo 10 chollos, los mejores", async () => {
+  it("la primera ejecución envía como máximo 10 chollos, los mejores, en UN resumen", async () => {
     const result = await runNotifications();
 
-    expect(mockDiscord).toHaveBeenCalledTimes(10);
+    expect(mockDiscord).toHaveBeenCalledTimes(1); // un solo resumen
     expect(result.notified).toBe(10);
     expect(mockState.notifications).toHaveLength(10);
 
-    const titles = mockDiscord.mock.calls.map((c: any[]) => c[0].title);
+    const digest = mockDiscord.mock.calls[0][0];
+    expect(digest).toHaveLength(10);
+    const titles = digest.map((g: any) => g.title);
     expect(titles[0]).toBe("Chollo 15"); // mayor puntuación
     expect(titles).toContain("Chollo 06"); // décimo mejor
     expect(titles).not.toContain("Chollo 05"); // se queda para el próximo pase
@@ -381,7 +385,9 @@ describe("runNotifications — tope de chollos por ejecución", () => {
     const third = await runNotifications();
     expect(third.notified).toBe(0); // todo notificado y en cooldown
 
-    const titles = mockDiscord.mock.calls.map((c: any[]) => c[0].title);
+    const titles = mockDiscord.mock.calls.flatMap((c: any[]) =>
+      (c[0] as any[]).map((g: any) => g.title)
+    );
     expect(titles).toHaveLength(15);
     expect(new Set(titles).size).toBe(15); // ningún título repetido
   });
@@ -395,7 +401,8 @@ describe("runNotifications — tope de chollos por ejecución", () => {
 
     const result = await runNotifications();
 
-    expect(mockDiscord).toHaveBeenCalledTimes(12); // los 12 de golpe
+    expect(mockDiscord).toHaveBeenCalledTimes(1); // un resumen con los 12
+    expect(mockDiscord.mock.calls[0][0]).toHaveLength(12);
     expect(result.notified).toBe(12);
   });
 });

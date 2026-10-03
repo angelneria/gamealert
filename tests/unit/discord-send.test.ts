@@ -6,7 +6,11 @@
  * a responder 429 y las alertas se perderían (o se reintentarían en bucle).
  */
 import axios from "axios";
-import { sendDiscordNotification } from "@/server/discord";
+import {
+  sendDiscordNotification,
+  sendDiscordDigest,
+  MAX_EMBEDS_PER_MESSAGE,
+} from "@/server/discord";
 
 jest.mock("axios", () => ({
   __esModule: true,
@@ -61,5 +65,67 @@ describe("sendDiscordNotification — pausa entre envíos", () => {
     expect(result).toBe(false);
     expect(mockedPost).not.toHaveBeenCalled();
     expect(jest.getTimerCount()).toBe(0);
+  });
+});
+
+describe("sendDiscordDigest — un resumen con todo", () => {
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ ...game, title: `Juego ${i + 1}` }));
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockedPost.mockReset();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("corta en mensajes de 10 embeds como máximo", async () => {
+    expect(MAX_EMBEDS_PER_MESSAGE).toBe(10);
+    mockedPost.mockResolvedValue({ status: 204 });
+
+    const result = sendDiscordDigest(many(11), WEBHOOK);
+    await jest.advanceTimersByTimeAsync(3000);
+
+    expect(mockedPost).toHaveBeenCalledTimes(2);
+    expect(mockedPost.mock.calls[0][1].embeds).toHaveLength(10);
+    expect(mockedPost.mock.calls[1][1].embeds).toHaveLength(1);
+    expect(mockedPost.mock.calls[0][1].username).toBe("GameAlert");
+    await expect(result).resolves.toBe(true);
+  });
+
+  it("con 10 o menos sale en un solo mensaje", async () => {
+    mockedPost.mockResolvedValue({ status: 204 });
+
+    const result = sendDiscordDigest(many(3), WEBHOOK);
+    await jest.advanceTimersByTimeAsync(2000);
+
+    expect(mockedPost).toHaveBeenCalledTimes(1);
+    expect(mockedPost.mock.calls[0][1].embeds).toHaveLength(3);
+    await expect(result).resolves.toBe(true);
+  });
+
+  it("lista vacía no envía nada y devuelve true", async () => {
+    await expect(sendDiscordDigest([], WEBHOOK)).resolves.toBe(true);
+    expect(mockedPost).not.toHaveBeenCalled();
+  });
+
+  it("si un tramo falla, el resumen entero falla (se reintenta después)", async () => {
+    mockedPost
+      .mockResolvedValueOnce({ status: 204 })
+      .mockRejectedValueOnce(new Error("boom"));
+
+    const result = sendDiscordDigest(many(11), WEBHOOK);
+    await jest.advanceTimersByTimeAsync(3000);
+
+    await expect(result).resolves.toBe(false);
+  });
+
+  it("URL no oficial → false sin peticiones", async () => {
+    await expect(
+      sendDiscordDigest(many(2), "https://evil.example.com/hook")
+    ).resolves.toBe(false);
+    expect(mockedPost).not.toHaveBeenCalled();
   });
 });

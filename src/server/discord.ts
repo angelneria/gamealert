@@ -131,6 +131,9 @@ export function isValidDiscordWebhook(url: string): boolean {
   }
 }
 
+/** Discord admite como máximo 10 embeds por mensaje */
+export const MAX_EMBEDS_PER_MESSAGE = 10;
+
 export async function sendDiscordNotification(
   game: DiscordGame,
   webhookUrl?: string
@@ -172,5 +175,60 @@ export async function sendDiscordNotification(
   } finally {
     // Límite de rate: pausa tras cada intento para no ser bloqueados
     await sleep(SEND_DELAY_MS);
+  }
+}
+
+/**
+ * Resumen: todos los juegos en el menor número de mensajes posible
+ * (hasta MAX_EMBEDS_PER_MESSAGE embeds cada uno). Devuelve true solo
+ * si TODOS los mensajes llegan; si alguno falla, el runner reintenta
+ * el lote entero en la próxima pasada (mismo cooldown por juego).
+ */
+export async function sendDiscordDigest(
+  games: DiscordGame[],
+  webhookUrl?: string
+): Promise<boolean> {
+  if (games.length === 0) return true;
+
+  const url = webhookUrl || config.notification.discordWebhookUrl;
+  if (!url) {
+    console.log("[Discord] No webhook configured");
+    return false;
+  }
+
+  if (!isValidDiscordWebhook(url)) {
+    console.error("[Discord] Blocked invalid webhook URL");
+    return false;
+  }
+
+  const embeds = games.map(buildDiscordEmbed);
+  const chunks = Math.ceil(embeds.length / MAX_EMBEDS_PER_MESSAGE);
+
+  try {
+    for (let i = 0; i < embeds.length; i += MAX_EMBEDS_PER_MESSAGE) {
+      const response = await axios.post(
+        url,
+        {
+          username: "GameAlert",
+          embeds: embeds.slice(i, i + MAX_EMBEDS_PER_MESSAGE),
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 10000,
+        }
+      );
+
+      if (response.status !== 204 && response.status !== 200) return false;
+      // Límite de rate: pausa tras cada mensaje del resumen
+      await sleep(SEND_DELAY_MS);
+    }
+
+    console.log(
+      `[Discord] Digest sent: ${games.length} games in ${chunks} message(s)`
+    );
+    return true;
+  } catch (error) {
+    console.error("[Discord] Digest failed:", (error as Error).message);
+    return false;
   }
 }

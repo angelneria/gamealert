@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { scrapeAllPlatforms, scrapeDeals, type ScrapedGame } from "@/lib/api-client";
 import { dedupeGames } from "@/lib/filters";
-import { sendDiscordNotification, type DiscordGame } from "@/server/discord";
-import { sendEmailNotification, isEmailConfigured, type EmailGame } from "@/server/notemail";
+import { sendDiscordDigest, type DiscordGame } from "@/server/discord";
+import {
+  sendDigestEmail,
+  isEmailConfigured,
+  type DigestItem,
+} from "@/server/notemail";
 import {
   selectNewGamesForUser,
   shouldSendDiscord,
@@ -21,8 +25,9 @@ import {
  *    least one user has deals enabled (merged and deduped by title)
  * 3. For each user: finds NEW games matching their platforms, quality bar
  *    and, for deals, their price cap + minimum discount
- * 4. Sends to Discord webhook and/or email (both channels), applying the
- *    per-run deals cap (MAX_DEALS_PER_RUN) — free games are never capped
+ * 4. Sends ONE digest per channel with every game (Discord: up to 10
+ *    embeds per message; email: a single message with the full list).
+ *    History is still logged per game, so the cooldown is unchanged.
  * 5. Logs notifications in DB with cooldown per user+game
  *
  * No Redis needed - state lives in SQLite via Prisma
@@ -200,9 +205,25 @@ async function executeRun(): Promise<RunResult> {
       `📨 ${user.email}: ${toSend.length} new games${deferred > 0 ? ` (+${deferred} en cola)` : ""} → Discord: ${user.discordEnabled ? "✅" : "❌"} | Email: ${user.emailEnabled ? "✅" : "❌"}`
     );
 
-    // 4. Send via enabled channels
-    for (const game of toSend) {
-      const discordGame: DiscordGame = {
+    // 4. Send via enabled channels — ONE digest per channel with every game.
+    // The history is still logged per game, so the cooldown keeps working
+    // exactly the same (a title is never resent while on cooldown).
+    const discordGames: DiscordGame[] = toSend.map((game) => ({
+      title: game.title,
+      platform: game.platform,
+      storeUrl: game.storeUrl,
+      imageUrl: game.imageUrl,
+      description: game.description,
+      publisher: game.publisher,
+      metacriticScore: game.metacriticScore,
+      isFree: game.isFree,
+      salePrice: game.salePrice,
+      discountPct: game.discountPct,
+      originalPrice: game.originalPrice,
+    }));
+
+    const digestItems: DigestItem[] = toSend.map((game) => ({
+      game: {
         title: game.title,
         platform: game.platform,
         storeUrl: game.storeUrl,
@@ -214,44 +235,33 @@ async function executeRun(): Promise<RunResult> {
         salePrice: game.salePrice,
         discountPct: game.discountPct,
         originalPrice: game.originalPrice,
-      };
+      },
+      score: game.importanceScore,
+    }));
 
-      const emailGame: EmailGame = {
-        title: game.title,
-        platform: game.platform,
-        storeUrl: game.storeUrl,
-        imageUrl: game.imageUrl,
-        description: game.description,
-        publisher: game.publisher,
-        metacriticScore: game.metacriticScore,
-        isFree: game.isFree,
-        salePrice: game.salePrice,
-        discountPct: game.discountPct,
-        originalPrice: game.originalPrice,
-      };
-
-      // Discord
-      if (user.discordEnabled && user.discordWebhookUrl) {
-        const ok = await sendDiscordNotification(
-          discordGame,
-          user.discordWebhookUrl
-        );
+    // Discord (resumen: hasta 10 juegos por mensaje)
+    if (user.discordEnabled && user.discordWebhookUrl) {
+      const ok = await sendDiscordDigest(discordGames, user.discordWebhookUrl);
+      for (const game of toSend) {
         await logNotification(user.id, game, "discord", ok ? "sent" : "failed");
-        if (ok) notifiedCount++;
-        else failedCount++;
-        // El límite de rate de Discord lo aplica el propio emisor (discord.ts)
       }
+      if (ok) notifiedCount += toSend.length;
+      else failedCount += toSend.length;
+    }
 
-      // Email
-      if (user.emailEnabled) {
-        if (!isEmailConfigured()) {
+    // Email (un solo correo con todos los juegos)
+    if (user.emailEnabled) {
+      if (!isEmailConfigured()) {
+        for (const game of toSend) {
           await logNotification(user.id, game, "email", "skipped");
-        } else {
-          const ok = await sendEmailNotification(user.email, emailGame, game.importanceScore);
-          await logNotification(user.id, game, "email", ok ? "sent" : "failed");
-          if (ok) notifiedCount++;
-          else failedCount++;
         }
+      } else {
+        const ok = await sendDigestEmail(user.email, digestItems);
+        for (const game of toSend) {
+          await logNotification(user.id, game, "email", ok ? "sent" : "failed");
+        }
+        if (ok) notifiedCount += toSend.length;
+        else failedCount += toSend.length;
       }
     }
   }

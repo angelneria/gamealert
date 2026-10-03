@@ -10,7 +10,11 @@ import {
   buildEmailSubject,
   buildEmailHtml,
   buildEmailText,
+  buildDigestSubject,
+  buildDigestHtml,
+  buildDigestText,
   type EmailGame,
+  type DigestItem,
 } from "@/server/notemail";
 
 const freeGame: DiscordGame = {
@@ -149,5 +153,67 @@ describe("tipos de mensaje", () => {
     expect(emailGame.salePrice).toBe(4.99);
     expect(emailGame.discountPct).toBe(75);
     expect(emailGame.isFree).toBe(false);
+  });
+});
+
+describe("resumen (un email con todo)", () => {
+  const freeItem: DigestItem = { game: { ...freeGame }, score: 84 };
+  const dealItem: DigestItem = {
+    game: { ...dealGame, isFree: false },
+    score: 80,
+  };
+  const mixed = [freeItem, dealItem];
+
+  describe("buildDigestSubject", () => {
+    it("mixto: cuenta gratis y chollos por separado", () => {
+      expect(buildDigestSubject(mixed)).toBe(
+        "GameAlert: 2 novedades (1 gratis + 1 chollo)"
+      );
+    });
+
+    it("solo chollos: sin mencionar gratis", () => {
+      expect(buildDigestSubject([dealItem, dealItem])).toBe(
+        "GameAlert: 2 chollos"
+      );
+    });
+
+    it("solo gratis: sin mencionar chollos", () => {
+      expect(buildDigestSubject([freeItem])).toBe("GameAlert: 1 juego gratis");
+      expect(buildDigestSubject([freeItem, freeItem])).toBe(
+        "GameAlert: 2 juegos gratis"
+      );
+    });
+  });
+
+  describe("buildDigestHtml", () => {
+    it("lista todos los títulos con sus secciones y precios", () => {
+      const html = buildDigestHtml(mixed);
+      expect(html).toContain("Juego Gratis");
+      expect(html).toContain("Juego Chollo");
+      expect(html).toContain("Gratis");
+      expect(html).toContain("Chollos");
+      expect(html).toContain("GRATIS");
+      expect(html).toContain("$4.99");
+      expect(html).toContain("-75%");
+      expect(html).toContain("Gestionar preferencias");
+    });
+
+    it("resumen solo de chollos: ni rastro de GRATIS", () => {
+      const html = buildDigestHtml([dealItem]);
+      expect(html).toContain("Juego Chollo");
+      expect(html).not.toContain("GRATIS");
+    });
+  });
+
+  describe("buildDigestText", () => {
+    it("texto plano con secciones, precios y enlaces", () => {
+      const text = buildDigestText(mixed);
+      expect(text).toContain("Resumen: 2 novedades");
+      expect(text).toContain("GRATIS:");
+      expect(text).toContain("CHOLLOS:");
+      expect(text).toContain("Juego Gratis (steam) — GRATIS");
+      expect(text).toContain("Juego Chollo (steam) — $4.99 (antes $19.99) -75%");
+      expect(text).toContain("https://store.steampowered.com/app/1/");
+    });
   });
 });
