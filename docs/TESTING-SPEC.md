@@ -278,6 +278,7 @@ describe("funcionNueva", () => {
 | Buscador y orden | caja "Buscar por nombre" y selector con "Relevancia" en la lista de juegos |
 | Portada con sesión | CTAs con `data-home-auth` (versión invitado en SSR; "Panel" al hidratar con sesión) |
 | SEO portada | sección "Dudas razonables" + JSON-LD `FAQPage` (misma fuente de datos), tarjeta `opengraph-image` (PNG 1200×630), keywords de chollos en metadata |
+| Responsive | viewport meta; nav secundaria oculta en móvil; títulos con `break-words`; modal y headers sin overflow |
 | Copy Ajustes | sin párrafos largos de explicación (regresión de texto) |
 | Countdown | "Próximo drop de Epic" |
 | Sin emojis | ningún pictograma U+1F000–U+1FAFF en UI |

@@ -186,6 +186,13 @@ else
     fail "Home page missing lang=\"es\""
   fi
 
+  # Responsive baseline: viewport meta + no fixed-width desktop-only nav
+  if echo "$HOME_HTML" | grep -q 'name="viewport"'; then
+    pass "Responsive: viewport meta present"
+  else
+    fail "Responsive: viewport meta missing"
+  fi
+
   # Design system classes
   if echo "$HOME_HTML" | grep -q "panel"; then
     pass "Design system: panel present"

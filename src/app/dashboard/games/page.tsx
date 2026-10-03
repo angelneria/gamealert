@@ -197,7 +197,7 @@ export default function DashboardGames() {
               GAMEALERT
             </span>
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <span className="mono-label hidden md:block">{now}</span>
             <Link href="/dashboard" className="mono-label hover:text-[var(--accent)] transition-colors">
               Panel
@@ -496,7 +496,7 @@ function GameRow({
     >
       <div className="min-w-0">
         <div className="flex items-baseline gap-4 flex-wrap">
-          <h3 className="font-display font-bold text-xl tracking-tight group-hover:text-[var(--accent)] transition-colors">
+          <h3 className="font-display font-bold text-xl tracking-tight group-hover:text-[var(--accent)] transition-colors break-words">
             {game.title}
           </h3>
           <span className="mono-label">{getPlatformName(game.platform)}</span>
@@ -596,12 +596,12 @@ function GameModal({ game, onClose }: { game: Game; onClose: () => void }) {
         {/* Content */}
         <div className="p-6 md:p-10">
           <p className="mono-label mb-3">{getPlatformName(game.platform)}</p>
-          <h2 className="font-display font-bold text-[clamp(28px,4vw,44px)] tracking-tighter leading-[0.95]">
+          <h2 className="font-display font-bold text-[clamp(28px,4vw,44px)] tracking-tighter leading-[0.95] break-words">
             {game.title}
           </h2>
 
           {/* Score */}
-          <div className="flex items-center gap-6 mt-6 pb-6 border-b border-[var(--border)]">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-4 mt-6 pb-6 border-b border-[var(--border)]">
             {score > 0 ? (
               <div>
                 <p className={`font-display font-bold text-5xl tracking-tight ${getScoreColor(score)}`}>

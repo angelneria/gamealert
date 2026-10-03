@@ -61,11 +61,11 @@ export default function Home() {
               GAMEALERT
             </span>
           </div>
-          <nav className="flex items-center gap-8">
-            <Link href="/dashboard/games" className="mono-label hover:text-[var(--accent)] transition-colors">
+          <nav className="flex items-center gap-4 sm:gap-8">
+            <Link href="/dashboard/games" className="mono-label hover:text-[var(--accent)] transition-colors hidden sm:block">
               Juegos
             </Link>
-            <Link href="/dashboard/settings" className="mono-label hover:text-[var(--accent)] transition-colors">
+            <Link href="/dashboard/settings" className="mono-label hover:text-[var(--accent)] transition-colors hidden sm:block">
               Ajustes
             </Link>
             <HomeNavCta />

@@ -164,7 +164,7 @@ export default function SettingsPage() {
               GAMEALERT
             </span>
           </Link>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <Link href="/dashboard" className="mono-label hover:text-[var(--accent)] transition-colors">
               Panel
             </Link>
