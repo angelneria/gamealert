@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+datasource db {
+  provider = "sqlite"
+  url = env("DATABASE_URL")
+}
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String @default("")
+  isEmailVerified Boolean @default(false)
+  platforms String @default("")
+  discordWebhookUrl String @default("")
+  minMetacritic Int @default(60)
+  cooldownHours Int @default(24)
+  emailEnabled Boolean @default(true)
+  discordEnabled Boolean @default(false)
+  dealsEnabled Boolean @default(false)
+  maxDealPrice Int @default(10)
+  minDiscountPct Int @default(75)
+  createdAt DateTime @default(now())
+  subscriptions Subscription[]
+  notifications Notification[]
+  @@map("users")
+}
+model Subscription {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform String
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  @@unique([userId, platform])
+  @@map("subscriptions")
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameTitle String
+  platform String
+  storeUrl String
+  channel String
+  status String @default("sent")
+  sentAt DateTime @default(now())
+  @@map("notifications")
+}
+model ScrapeLog {
+  id String @id @default(cuid())
+  platform String
+  startedAt DateTime @default(now())
+  completedAt DateTime?
+  status String @default("running")
+  gamesFound Int @default(0)
+  gamesSaved Int @default(0)
+  error String?
+  @@map("scrape_logs")
+}
+model GameScore {
+  id String @id @default(cuid())
+  gameId String @unique
+  platform String
+  title String
+  overallScore Float @default(0)
+  factors String @default("")
+  calculatedAt DateTime @default(now())
+  @@map("game_scores")
+}
