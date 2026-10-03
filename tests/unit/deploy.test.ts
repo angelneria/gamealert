@@ -90,4 +90,15 @@ describe("database (deploy-safe)", () => {
     expect(ignore).toMatch(/^\*\.db$/m);
     expect(ignore).toMatch(/\.vercel/);
   });
+
+  it("build script regenerates Prisma client (fresh Vercel install)", () => {
+    const pkg = readJson("package.json");
+    expect(pkg.scripts.build).toContain("prisma generate");
+    expect(pkg.scripts.build).toContain("next build");
+  });
+
+  it(".npmrc allows legacy peers (react19/next14 conflict breaks Vercel npm ci)", () => {
+    const npmrc = fs.readFileSync(path.join(root, ".npmrc"), "utf8");
+    expect(npmrc).toMatch(/legacy-peer-deps\s*=\s*true/);
+  });
 });

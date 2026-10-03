@@ -239,7 +239,7 @@ describe("funcionNueva", () => {
 
 ## 6. Registro de casos de prueba
 
-### Unitarios (261 tests)
+### Unitarios (263 tests)
 | Suite | Tests | Cobertura |
 |-------|-------|-----------|
 | `filters.test.ts` | 91 | Steam/Epic/GOG/shared + chollos (CheapShark: tiendas, parseo, precio, descuento) |
@@ -252,14 +252,14 @@ describe("funcionNueva", () => {
 | `game-list.test.ts` | 20 | búsqueda (acentos, vacía), orden (5 claves, sin-dato al final, no muta), iniciales desde Ajustes |
 | `db-config.test.ts` | 6 | selector local vs Turso, fail-closed sin token |
 | `api-client.test.ts` | 9 | importance, platform, config |
-| `deploy.test.ts` | 11 | vercel.json cumple límite Hobby (cron diario), secretos documentados en .env.example, proveedor sqlite, adapter libsql instalado, .gitignore cubre *.db |
+| `deploy.test.ts` | 13 | vercel.json cumple límite Hobby (cron diario), secretos documentados en .env.example, proveedor sqlite, adapter libsql instalado, .gitignore cubre *.db, build regenera Prisma, .npmrc con legacy peers |
 
 ### Integración (52 tests)
 | Suite | Tests | Cobertura |
 |-------|-------|-----------|
 | `api.test.ts` | 52 | registro+sesión, login/logout, preferencias (incl. chollos), /api/games, /api/deals, notificaciones, cron, CSRF, páginas protegidas, SEO |
 
-**Total: 313 tests**
+**Total: 315 tests**
 
 ### Smoke/UI (test.sh)
 | Check | Qué verifica |
